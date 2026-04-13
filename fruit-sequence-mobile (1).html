@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>🍓 水果序列挑戰</title>
+<!--
+  ========================================================
+  🍓 水果序列挑戰 - 手機版
+  ========================================================
+  版本說明：完全離線版本 + 手機優化 + 屏蔽時完全遮蔽
+  ========================================================
+  特色：
+  - 完全離線可用，雙擊或在手機瀏覽器打開即可運行
+  - 響應式設計，自動適應手機/平板/桌面螢幕
+  - 直向手機：水果序列垂直排列，方便滑動查看
+  - 橫向/桌面：水果序列水平排列
+  - 觸控優化：所有按鈕加大、防誤觸
+  - 防止頁面縮放與滾動干擾
+  ========================================================
+-->
+<style>
+  /* ========== 全域基礎樣式 ========== */
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+  }
+
+  /* 按鈕需要立即響應觸控 */
+  button {
+    touch-action: manipulation;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+  }
+
+  /* iOS 按鈕相容性修正 */
+  button {
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-appearance: none;
+    appearance: none;
+    font-family: inherit;
+  }
+
+  html, body {
+    height: 100%;
+    width: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", "PingFang TC", "Heiti TC", sans-serif;
+    background: linear-gradient(135deg, #fff8e1 0%, #ffe0f0 50%, #e0f7ff 100%);
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    position: fixed;
+    /* 支援 iPhone 瀏海與底部安全區 */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  /* ========== 頁面容器 ========== */
+  .screen {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4vmin;
+  }
+
+  .screen.active {
+    display: flex;
+    animation: fadeIn 0.4s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  /* ========== 首頁 ========== */
+  #homeScreen {
+    justify-content: space-evenly;
+  }
+
+  #homeScreen h1 {
+    /* 使用 vmin 讓字體隨螢幕縮放 */
+    font-size: clamp(36px, 9vmin, 80px);
+    color: #e91e63;
+    text-shadow: 3px 3px 0 #fff, 5px 5px 0 rgba(0,0,0,0.1);
+    text-align: center;
+    animation: bounce 2s infinite;
+    padding: 0 10px;
+  }
+
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+  }
+
+  #homeScreen .subtitle {
+    font-size: clamp(16px, 3.5vmin, 28px);
+    color: #555;
+    background: rgba(255,255,255,0.8);
+    padding: 12px 25px;
+    border-radius: 50px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    text-align: center;
+    margin: 0 10px;
+  }
+
+  .difficulty-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 3vmin;
+    width: 90%;
+    max-width: 400px;
+  }
+
+  /* 桌面/平板橫向：按鈕改為橫排 */
+  @media (min-width: 768px) and (orientation: landscape) {
+    .difficulty-buttons {
+      flex-direction: row;
+      max-width: 900px;
+      gap: 30px;
+    }
+  }
+
+  .diff-btn {
+    font-size: clamp(22px, 5vmin, 38px);
+    font-weight: bold;
+    padding: 4vmin 5vmin;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    color: white;
+    box-shadow: 0 6px 0 rgba(0,0,0,0.2), 0 10px 20px rgba(0,0,0,0.15);
+    transition: all 0.15s ease;
+    width: 100%;
+    min-height: 60px;
+  }
+
+  .diff-btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0 rgba(0,0,0,0.2);
+  }
+
+  .diff-easy { background: linear-gradient(135deg, #66bb6a, #43a047); }
+  .diff-medium { background: linear-gradient(135deg, #ffa726, #fb8c00); }
+  .diff-hard { background: linear-gradient(135deg, #ef5350, #e53935); }
+
+  /* ========== 遊戲畫面 ========== */
+  #gameScreen {
+    justify-content: space-between;
+    padding: 3vmin 3vmin;
+  }
+
+  .game-header {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .level-info {
+    font-size: clamp(14px, 3.2vmin, 28px);
+    font-weight: bold;
+    color: #333;
+    background: rgba(255,255,255,0.9);
+    padding: 10px 18px;
+    border-radius: 50px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    white-space: nowrap;
+  }
+
+  .level-info span {
+    color: #e91e63;
+  }
+
+  .end-btn {
+    font-size: clamp(13px, 3vmin, 22px);
+    font-weight: bold;
+    padding: 12px 18px;
+    border: none;
+    border-radius: 15px;
+    cursor: pointer;
+    color: white;
+    background: linear-gradient(135deg, #f44336, #c62828);
+    box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+
+  .end-btn:active {
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+  }
+
+  /* ========== 水果序列區域 ========== */
+  .sequence-wrapper {
+    position: relative;
+    width: 100%;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 2vmin 0;
+    min-height: 0; /* 讓 flex 子元素能正確收縮 */
+  }
+
+  .sequence-container {
+    width: 100%;
+    height: 100%;
+    background: rgba(255,255,255,0.75);
+    border-radius: 25px;
+    box-shadow: inset 0 4px 15px rgba(0,0,0,0.08), 0 6px 20px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2vmin;
+    padding: 2vmin;
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+
+  /* 直向手機：水果改為垂直排列 */
+  @media (orientation: portrait) and (max-width: 767px) {
+    .sequence-container {
+      flex-direction: column;
+      overflow-y: auto;
+      overflow-x: hidden;
+      gap: 1vmin;
+    }
+  }
+
+  .fruit {
+    font-size: 100px;
+    line-height: 1;
+    display: inline-block;
+    flex-shrink: 0;
+    opacity: 0;
+    animation: popIn 0.5s ease forwards;
+  }
+
+  @keyframes popIn {
+    0% { opacity: 0; transform: translateY(-20px) rotate(-15deg); }
+    60% { opacity: 1; transform: translateY(6px) rotate(4deg); }
+    100% { opacity: 1; transform: translateY(0) rotate(0deg); }
+  }
+
+  /* ========== 屏蔽遮罩 ========== */
+  .mask-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    background: #1a237e;
+    opacity: 1;
+    border-radius: 25px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    z-index: 100;
+    box-shadow: 0 6px 25px rgba(0,0,0,0.3);
+    padding: 20px;
+  }
+
+  .mask-overlay.show {
+    display: flex;
+    animation: maskIn 0.3s ease;
+  }
+
+  @keyframes maskIn {
+    from { opacity: 0; transform: scale(0.92); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .mask-overlay .mask-icon {
+    font-size: clamp(60px, 15vmin, 130px);
+    margin-bottom: 15px;
+    animation: shieldPulse 2s infinite;
+  }
+
+  @keyframes shieldPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+  }
+
+  .mask-overlay .mask-text {
+    font-size: clamp(32px, 8vmin, 72px);
+    font-weight: bold;
+    color: white;
+    text-shadow: 3px 3px 0 rgba(0,0,0,0.3);
+    margin-bottom: 12px;
+    text-align: center;
+  }
+
+  .mask-overlay .mask-subtext {
+    font-size: clamp(20px, 5vmin, 44px);
+    color: #ffeb3b;
+    font-weight: bold;
+    text-align: center;
+  }
+
+  /* ========== 控制按鈕區 ========== */
+  .game-controls {
+    display: flex;
+    gap: 2vmin;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    flex-shrink: 0;
+  }
+
+  .control-btn {
+    font-size: clamp(15px, 3.5vmin, 28px);
+    font-weight: bold;
+    padding: 14px 20px;
+    border: none;
+    border-radius: 18px;
+    cursor: pointer;
+    color: white;
+    box-shadow: 0 5px 0 rgba(0,0,0,0.2), 0 8px 15px rgba(0,0,0,0.15);
+    transition: all 0.15s ease;
+    flex: 1;
+    min-width: 100px;
+    min-height: 50px;
+    white-space: nowrap;
+  }
+
+  .control-btn:active {
+    transform: translateY(3px);
+    box-shadow: 0 2px 0 rgba(0,0,0,0.2);
+  }
+
+  /* 屏蔽按鈕較重要，獨佔一行 */
+  .mask-btn {
+    background: linear-gradient(135deg, #5c6bc0, #3949ab);
+    flex-basis: 100%;
+    margin-bottom: 1vmin;
+    font-size: clamp(18px, 4.5vmin, 32px);
+    padding: 18px 20px;
+  }
+
+  .next-btn { background: linear-gradient(135deg, #26c6da, #00acc1); }
+  .menu-btn { background: linear-gradient(135deg, #8d6e63, #5d4037); }
+
+  /* ========== 結束畫面 ========== */
+  #endScreen {
+    justify-content: space-evenly;
+  }
+
+  #endScreen h1 {
+    font-size: clamp(30px, 8vmin, 70px);
+    color: #e91e63;
+    text-shadow: 3px 3px 0 #fff;
+    text-align: center;
+    animation: bounce 2s infinite;
+    padding: 0 10px;
+  }
+
+  #endScreen .end-info {
+    font-size: clamp(20px, 5vmin, 42px);
+    color: #333;
+    background: rgba(255,255,255,0.9);
+    padding: 25px 40px;
+    border-radius: 25px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    text-align: center;
+    line-height: 1.8;
+  }
+
+  #endScreen .end-info span {
+    color: #e91e63;
+    font-weight: bold;
+    font-size: clamp(28px, 7vmin, 56px);
+  }
+
+  .replay-btn {
+    font-size: clamp(24px, 6vmin, 44px);
+    font-weight: bold;
+    padding: 22px 50px;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    color: white;
+    background: linear-gradient(135deg, #ec407a, #c2185b);
+    box-shadow: 0 6px 0 rgba(0,0,0,0.2), 0 10px 20px rgba(0,0,0,0.15);
+    transition: all 0.15s ease;
+  }
+
+  .replay-btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0 rgba(0,0,0,0.2);
+  }
+
+  /* ========== Canvas 彩紙 ========== */
+  #confettiCanvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9999;
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== 首頁 ========== -->
+<div id="homeScreen" class="screen active">
+  <h1>🍓 水果序列挑戰</h1>
+  <div class="subtitle">用實物圖卡按照畫面順序挑戰！</div>
+  <div class="difficulty-buttons">
+    <button class="diff-btn diff-easy" data-action="start-easy">易 Easy</button>
+    <button class="diff-btn diff-medium" data-action="start-medium">難 Medium</button>
+    <button class="diff-btn diff-hard" data-action="start-hard">很難 Hard</button>
+  </div>
+</div>
+
+<!-- ========== 遊戲畫面 ========== -->
+<div id="gameScreen" class="screen">
+  <div class="game-header">
+    <div class="level-info">
+      <span id="diffText">易</span> ｜ 第 <span id="levelText">1</span> 關
+    </div>
+    <button class="end-btn" data-action="end">結束</button>
+  </div>
+
+  <div class="sequence-wrapper">
+    <div class="sequence-container" id="sequenceContainer"></div>
+    <div class="mask-overlay" id="maskOverlay">
+      <div class="mask-icon">🛡️</div>
+      <div class="mask-text">畫面已屏蔽</div>
+      <div class="mask-subtext">請用圖卡挑戰！</div>
+    </div>
+  </div>
+
+  <div class="game-controls">
+    <button class="control-btn mask-btn" id="maskBtn" data-action="mask">🛡️ 屏蔽畫面</button>
+    <button class="control-btn next-btn" data-action="next">➡️ 下一關</button>
+    <button class="control-btn menu-btn" data-action="menu">🏠 選單</button>
+  </div>
+</div>
+
+<!-- ========== 結束畫面 ========== -->
+<div id="endScreen" class="screen">
+  <h1>🎉 挑戰結束！你很棒！ 🎉</h1>
+  <div class="end-info">
+    完成關卡數：<span id="finalLevel">0</span><br>
+    本次總分：<span id="finalScore">0</span> 分
+  </div>
+  <button class="replay-btn" data-action="replay">🔄 再玩一次</button>
+</div>
+
+<canvas id="confettiCanvas"></canvas>
+
+<script>
+// ==========================================================
+// 🍓 水果序列挑戰 - 手機版遊戲邏輯
+// ==========================================================
+
+const FRUITS = ['🍓', '🍐', '🍎', '🍊'];
+
+const DIFFICULTY_CONFIG = {
+  easy:   { min: 4, max: 5, label: '易 Easy' },
+  medium: { min: 5, max: 7, label: '難 Medium' },
+  hard:   { min: 8, max: 8, label: '很難 Hard' }
+};
+
+let currentDifficulty = 'easy';
+let currentLevel = 1;
+let isMasked = false;
+
+// ==========================================================
+// Web Audio API 音效
+// ==========================================================
+let audioCtx = null;
+
+function initAudio() {
+  if (!audioCtx) {
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch(e) {}
+  }
+  // iOS 需要在使用者互動後解鎖
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+
+function playTone(freq, duration, type = 'sine', volume = 0.3) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
+}
+
+function playSuccess() {
+  initAudio();
+  if (!audioCtx) return;
+  playTone(523, 0.15, 'sine', 0.3);
+  setTimeout(() => playTone(659, 0.15, 'sine', 0.3), 100);
+  setTimeout(() => playTone(784, 0.25, 'sine', 0.3), 200);
+}
+
+function playClick() {
+  initAudio();
+  playTone(600, 0.08, 'square', 0.15);
+}
+
+function playWin() {
+  initAudio();
+  if (!audioCtx) return;
+  const notes = [523, 659, 784, 1047];
+  notes.forEach((freq, i) => {
+    setTimeout(() => playTone(freq, 0.3, 'triangle', 0.3), i * 120);
+  });
+}
+
+// ==========================================================
+// 遊戲核心邏輯
+// ==========================================================
+
+/** 產生隨機水果序列：每種水果最多出現 2 次 */
+function generateSequence(difficulty) {
+  const config = DIFFICULTY_CONFIG[difficulty];
+  const count = Math.floor(Math.random() * (config.max - config.min + 1)) + config.min;
+
+  const pool = [];
+  FRUITS.forEach(fruit => pool.push(fruit, fruit));
+
+  // Fisher-Yates 洗牌
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+
+  return pool.slice(0, count);
+}
+
+/** 顯示水果序列 */
+function renderSequence(sequence) {
+  const container = document.getElementById('sequenceContainer');
+  container.innerHTML = '';
+
+  sequence.forEach((fruit, index) => {
+    const span = document.createElement('span');
+    span.className = 'fruit';
+    span.textContent = fruit;
+    span.style.animationDelay = (index * 0.12) + 's';
+    container.appendChild(span);
+  });
+
+  requestAnimationFrame(() => adjustFruitSize());
+}
+
+/**
+ * 動態調整水果尺寸
+ * 根據手機/桌面方向自動選擇橫向或直向佈局的計算方式
+ */
+function adjustFruitSize() {
+  const container = document.getElementById('sequenceContainer');
+  const fruits = container.querySelectorAll('.fruit');
+  if (fruits.length === 0) return;
+
+  // 判斷目前是否為直向手機（垂直佈局）
+  const isPortraitMobile = window.matchMedia('(orientation: portrait) and (max-width: 767px)').matches;
+
+  const containerStyle = window.getComputedStyle(container);
+  const padX = parseFloat(containerStyle.paddingLeft) + parseFloat(containerStyle.paddingRight);
+  const padY = parseFloat(containerStyle.paddingTop) + parseFloat(containerStyle.paddingBottom);
+  const gap = parseFloat(containerStyle.gap) || 8;
+
+  const availW = container.clientWidth - padX - 10;
+  const availH = container.clientHeight - padY - 10;
+
+  let fontSize;
+
+  if (isPortraitMobile) {
+    // 直向手機：垂直排列，主要受高度限制
+    // 每個水果可用高度 = (總高 - 間距總和) / 數量
+    const totalGap = gap * (fruits.length - 1);
+    const perH = (availH - totalGap) / fruits.length;
+    // emoji 高度約等於字體大小
+    fontSize = Math.floor(Math.min(perH, availW * 0.95));
+  } else {
+    // 橫向：使用實測法
+    fontSize = 220;
+    fruits.forEach(f => f.style.fontSize = fontSize + 'px');
+    const actualW = getFruitsActualWidth(fruits, gap);
+    if (actualW > availW) {
+      fontSize = Math.floor(fontSize * (availW / actualW));
+    }
+    if (fontSize > availH) fontSize = availH;
+  }
+
+  fontSize = Math.max(40, Math.min(220, fontSize));
+  fruits.forEach(f => f.style.fontSize = fontSize + 'px');
+
+  // 二次微調：橫向時再檢查一次
+  if (!isPortraitMobile) {
+    let attempts = 0;
+    while (getFruitsActualWidth(fruits, gap) > availW && fontSize > 40 && attempts < 15) {
+      fontSize -= 5;
+      fruits.forEach(f => f.style.fontSize = fontSize + 'px');
+      attempts++;
+    }
+  }
+}
+
+function getFruitsActualWidth(fruits, gap) {
+  let total = 0;
+  fruits.forEach(f => {
+    total += f.getBoundingClientRect().width;
+  });
+  total += gap * (fruits.length - 1);
+  return total;
+}
+
+// ==========================================================
+// 遊戲流程控制
+// ==========================================================
+
+function startGame(difficulty) {
+  initAudio();
+  playClick();
+  currentDifficulty = difficulty;
+  currentLevel = 1;
+  isMasked = false;
+
+  document.getElementById('diffText').textContent = DIFFICULTY_CONFIG[difficulty].label;
+  document.getElementById('levelText').textContent = currentLevel;
+  document.getElementById('maskOverlay').classList.remove('show');
+  document.getElementById('maskBtn').textContent = '🛡️ 屏蔽畫面';
+
+  switchScreen('gameScreen');
+
+  const sequence = generateSequence(difficulty);
+  // 等畫面切換完再渲染，確保容器尺寸正確
+  setTimeout(() => renderSequence(sequence), 100);
+}
+
+function nextLevel() {
+  playSuccess();
+  currentLevel++;
+  document.getElementById('levelText').textContent = currentLevel;
+
+  if (isMasked) toggleMask();
+
+  const sequence = generateSequence(currentDifficulty);
+  renderSequence(sequence);
+  launchConfetti();
+  playWin();
+}
+
+function toggleMask() {
+  playClick();
+  isMasked = !isMasked;
+  const overlay = document.getElementById('maskOverlay');
+  const btn = document.getElementById('maskBtn');
+
+  if (isMasked) {
+    overlay.classList.add('show');
+    btn.textContent = '👁️ 顯示畫面';
+  } else {
+    overlay.classList.remove('show');
+    btn.textContent = '🛡️ 屏蔽畫面';
+  }
+}
+
+function endGame() {
+  playClick();
+  document.getElementById('finalLevel').textContent = currentLevel;
+  document.getElementById('finalScore').textContent = currentLevel;
+  switchScreen('endScreen');
+  launchConfetti();
+  playWin();
+}
+
+function backToMenu() {
+  playClick();
+  switchScreen('homeScreen');
+}
+
+function replay() {
+  playClick();
+  currentLevel = 1;
+  switchScreen('homeScreen');
+}
+
+function switchScreen(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+}
+
+// ==========================================================
+// Canvas 彩紙效果
+// ==========================================================
+const canvas = document.getElementById('confettiCanvas');
+const ctx = canvas.getContext('2d');
+let confettiParticles = [];
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+
+class Confetti {
+  constructor() {
+    this.x = Math.random() * canvas.width;
+    this.y = -20;
+    this.size = Math.random() * 8 + 6;
+    this.speedY = Math.random() * 3 + 2;
+    this.speedX = (Math.random() - 0.5) * 3;
+    this.rotation = Math.random() * 360;
+    this.rotSpeed = (Math.random() - 0.5) * 10;
+    const colors = ['#ff4081', '#ffd54f', '#4fc3f7', '#81c784', '#ba68c8', '#ff8a65'];
+    this.color = colors[Math.floor(Math.random() * colors.length)];
+  }
+  update() {
+    this.y += this.speedY;
+    this.x += this.speedX;
+    this.rotation += this.rotSpeed;
+  }
+  draw() {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rotation * Math.PI / 180);
+    ctx.fillStyle = this.color;
+    ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size * 0.6);
+    ctx.restore();
+  }
+}
+
+function launchConfetti() {
+  // 手機減少粒子數量以提升效能
+  const count = window.innerWidth < 768 ? 60 : 100;
+  for (let i = 0; i < count; i++) {
+    confettiParticles.push(new Confetti());
+  }
+}
+
+function animateConfetti() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  confettiParticles = confettiParticles.filter(p => p.y < canvas.height + 50);
+  confettiParticles.forEach(p => {
+    p.update();
+    p.draw();
+  });
+  requestAnimationFrame(animateConfetti);
+}
+animateConfetti();
+
+// ==========================================================
+// 視窗事件 & 手機優化
+// ==========================================================
+
+// 視窗縮放或旋轉時重新調整
+function handleResize() {
+  resizeCanvas();
+  if (document.getElementById('gameScreen').classList.contains('active')) {
+    setTimeout(adjustFruitSize, 100);
+  }
+}
+window.addEventListener('resize', handleResize);
+window.addEventListener('orientationchange', () => {
+  setTimeout(handleResize, 300);
+});
+
+// 防止雙指縮放（iOS Safari）
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+document.addEventListener('gesturechange', (e) => e.preventDefault());
+
+// ==========================================================
+// 按鈕事件綁定（iOS Safari 相容方案）
+// 直接為每個按鈕綁定 touchend + click，並用 flag 防止重複觸發
+// ==========================================================
+const actionMap = {
+  'start-easy':   () => startGame('easy'),
+  'start-medium': () => startGame('medium'),
+  'start-hard':   () => startGame('hard'),
+  'end':          () => endGame(),
+  'mask':         () => toggleMask(),
+  'next':         () => nextLevel(),
+  'menu':         () => backToMenu(),
+  'replay':       () => replay()
+};
+
+/** 為單一按鈕綁定點擊事件 */
+function bindButton(btn) {
+  const action = btn.dataset.action;
+  if (!actionMap[action]) return;
+
+  let touched = false;
+
+  // touchend 在 iOS 上反應最即時
+  btn.addEventListener('touchend', (e) => {
+    e.preventDefault();    // 阻止後續 click 重複觸發
+    e.stopPropagation();
+    touched = true;
+    initAudio();           // 解鎖 iOS 音訊
+    actionMap[action]();
+    // 短暫鎖定後重置，避免手指拖動誤觸
+    setTimeout(() => { touched = false; }, 350);
+  }, { passive: false });
+
+  // click 給桌面瀏覽器與滑鼠使用
+  btn.addEventListener('click', (e) => {
+    if (touched) return;   // 若剛剛已由 touchend 觸發則跳過
+    initAudio();
+    actionMap[action]();
+  });
+}
+
+// 頁面載入後，為所有 data-action 按鈕綁定事件
+document.querySelectorAll('[data-action]').forEach(bindButton);
+
+console.log('🍓 水果序列挑戰（手機版）已準備就緒！');
+</script>
+</body>
+</html>
